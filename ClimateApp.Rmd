@@ -1,0 +1,329 @@
+---
+title: "work"
+author: "Jeffrey Scanlon"
+date: "3/4/2021"
+output: html_document
+---
+
+```{r}
+library(shiny)
+library(shinydashboard)
+library(ggplot2)
+library(plotly)
+library(tidyverse)
+library(dplyr)
+library(shinythemes)
+library(RColorBrewer)
+library(ggforce)
+library(ggalluvial)
+library(DT)
+library(colourpicker)
+library(hrbrthemes)
+library(ggalt)
+library(scales)
+library(leaflet)
+
+
+globaltrends <- read.csv(file = 'global.csv')
+OECD <- read.csv(file = 'OECD.csv')
+VulnIndex <- read.csv(file = 'VulnIndex.csv')
+OWID <- read.csv(file = "OWID.csv")
+OECD <- as.data.frame(OECD)
+globaltrends <- as.data.frame(globaltrends)
+VulnIndex <- as.data.frame(VulnIndex)
+OWID <- as.data.frame(OWID)
+
+
+y08 <- OWID %>%
+  filter(year==2008)%>%
+  select(country, co2_per_capita)%>%
+  rename(Country = country)
+
+merged <- merge(x = VulnIndex, y = y08, by = "Country")
+merged <- merged%>%
+  mutate(co2 = co2_per_capita*OverallPop08*1000)
+
+OWID <- OWID %>%
+  rename(Country = country)
+
+OWID_merged <- merge(x = VulnIndex, y= OWID, by='Country')
+
+levels(OWID_merged$Region) <- c("Africa", "Asia", "Europe", "Latin America", "North America", "Oceania")
+
+```
+
+```{r}
+f <- function(pal) brewer.pal(brewer.pal.info[pal, "maxcolors"], pal)
+colors <- f("Dark2")
+
+a = geom_line(aes(y=Total))
+
+ggplotly(
+  ggplot(globaltrends, aes(x=Year)) + 
+    geom_line(aes(y=Total, color = "Total")) +
+    geom_line(aes(y=Gas.Fuel, color = "Gas Fuel")) +
+    geom_line(aes(y=Liquid.Fuel, color = "Liquid")) +
+    geom_line(aes(y=Solid.Fuel, color = "Solid")) +
+    geom_line(aes(y=Cement, color = "Cement")) +
+    geom_line(aes(y=Gas.Flaring, color = "Gas Flaring")) +
+  scale_color_manual(name="Emissions Source",
+                     values = c("Total" = "blue", "Gas Fuel" = "green", "Liquid" = "yellow", "Solid" = "orange", "Cement" = "red", "Gas Flaring" = "purple")))
+
+```
+
+```{r}
+
+
+OECD_filt <- OECD %>%
+  filter(Country == 'United States of America')
+
+ggplot(OECD_filt, aes(x=Year, y=Total)) + geom_bar()
+
+```
+
+
+```{r}
+#y08 <- OWID %>%
+ # filter(year==2008)%>%
+  #select(country, co2_per_capita)%>%
+  #rename(Country = country)
+
+```
+
+```{r}
+  
+
+#merged <- merge(x = VulnIndex, y = y08, by = "Country")
+#merged <- merged%>%
+ # mutate(co2 = co2_per_capita*OverallPop08*1000)
+
+ggplotly(
+ggplot(merged, aes(x=co2, y=OverallCV, color=IncomeStatus, label=Country)) + geom_point(alpha = (1/2)) + scale_color_brewer(palette = "Dark2"))
+
+merged
+```
+
+``` {r}
+ggplotly(
+ggplot(merged, aes(OverallCDI)) + geom_density(aes(fill=WBLendingClass), alpha = 0.8))
+```
+
+```{r}
+merged_filter <- merged %>%
+  filter(Region == 'Africa', !is.na(co2_per_capita))
+
+average <- mean(merged_filter[,'co2_per_capita'])
+
+merged_filter <- mutate(merged_filter, Code = ifelse(co2_per_capita >= average, "Above average", "Below average"))
+
+ggplotly(
+ggplot(merged_filter, aes(x=reorder(Country, co2_per_capita), y=co2_per_capita, label=co2_per_capita)) + geom_point(stat='identity', size=1) + coord_flip())
+
+```
+```{r}
+merged_sub <- merged %>%
+  #filter(WBLendingClass == 'IDA') %>%
+  filter(OverallCV < 60)
+
+merged_sub
+
+ggplotly(
+ggplot(merged_sub, aes(x=OverallCV, y=OverallPC, color=WBLendingClass)) + geom_point(aes(alpha=0.8)) + geom_smooth(method="lm", se=F))
+```
+
+```{r}
+#236 unique in OWID
+#233 unique in VulnIndex
+#202 unique in OWID_merged
+
+#OWID <- OWID %>%
+ # rename(Country = country)
+
+
+#OWID_merged <- merge(x = VulnIndex, y= OWID, by='Country')
+```
+
+```{r}
+
+OWID_years <- OWID_merged %>%
+  filter(year %in% c(1950, 1955, 1960, 1965, 1970, 1975, 1980, 1985, 1990, 1995, 2000, 2005, 2010, 2015))
+
+```
+
+```{r}
+sub1 <- VulnIndex %>%
+  filter(Country == 'Liberia')
+
+num <- sub1$OverallCV
+
+num
+
+sub2 <- VulnIndex %>%
+  filter(Country != 'Somalia')
+
+
+max1 <- max(sub2$OverallCV)
+  
+library(plotly)
+fig <- plot_ly(
+    domain = list(x = c(0, 1), y = c(0, 1)),
+    value = num,
+    title = list(text = "Speed"),
+    type = "indicator",
+    mode = "gauge+number",
+    gauge = list(
+    axis =list(range = list(NULL, max1))))
+fig <- fig %>%
+  layout(margin = list(l=20,r=30))
+
+fig
+
+```
+
+```{r}
+
+trythis1 <- OWID_merged %>%
+  select(Country, year, co2, Region, IncomeStatus, WBLendingClass) %>%
+  filter(year==1970)
+
+trythis2 <- OWID_merged %>%
+  select(Country, year, co2) %>%
+  filter(year==2010)
+
+combined <- merge(x=trythis1, y=trythis2, by='Country')
+ 
+combined <- combined %>%
+  filter(co2.x < 60, co2.y < 60, co2.x > 10, co2.x > 10)
+
+combined
+
+```
+
+```{r}
+library(ggrepel)
+left_label <- paste(combined$Country)
+
+ggplotly(
+ggplot(combined) + geom_segment(aes(x=1, xend=2, y=co2.x, yend=co2.y, color=WBLendingClass)) + geom_vline(xintercept=1, linetype="dashed", size = .1) + geom_vline(xintercept=2, linetype="dashed", size=.1) +
+  xlim(0.5,2.5) + ylim(0.9*min(combined$co2.x, combined$co2.y), (1.1*(max(combined$co2.x, combined$co2.y)))) +
+  theme(axis.ticks = element_blank(),
+        axis.text.x = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank(),
+        panel.grid = element_blank()) +
+  geom_text(label = '1970', x=1, y=1.1*(max(combined$co2.x, combined$co2.y)), hjust=1.2, size=5) +
+  geom_text(label = '2010', x=2, y=1.1*(max(combined$co2.x, combined$co2.y)), hjust=-0.1, size=5)
+)
+
+```
+
+```{r}
+library(collapse)
+
+OWID_merged <- OWID_merged %>%
+  filter(year == 2000) %>%
+  group_by(Region, year) %>%
+  summarize(co2_tot = sum(co2, na.rm=TRUE),
+            pop_tot = sum(population, na.rm=TRUE),
+            co2_cap_tot = co2_tot/pop_tot)
+
+total_co2 <- sum(OWID_merged$co2_tot)
+total_pop <- sum(OWID_merged$pop_tot)
+    OWID_merged <- OWID_merged %>%
+      mutate(co2_perc = (co2_tot/total_co2)*100,
+             pop_perc = (pop_tot/total_pop)*100,
+             Code = ifelse(pop_perc <= co2_perc, "Fewer emissions", "More emissions"))
+
+OWID_merged
+
+ggplotly(
+ggplot(OWID_merged, aes(x=year)) + geom_area(aes(y=co2_tot, fill=Region)))
+
+```
+
+```{r}
+
+
+ggplotly(
+ggplot(OWID_merged) + geom_segment(aes(x=1, xend=2, y=pop_perc, yend=co2_perc, color=Code)) + geom_vline(xintercept=1, linetype="dashed", size = .1) + geom_vline(xintercept=2, linetype="dashed", size=.1) +
+  xlim(0.5,2.5) + ylim(0.9*min(OWID_merged$pop_perc, OWID_merged$co2_perc), (1.1*(max(OWID_merged$pop_perc, OWID_merged$co2_perc)))) +
+  theme(axis.ticks = element_blank(),
+        axis.text.x = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank(),
+        panel.grid = element_blank()) +
+  geom_text(label = paste(OWID_merged$Region), y=OWID_merged$pop_perc, x=rep(0.9, NROW(OWID_merged)), hjust=1.1, size=3) +
+  geom_text(label = 'Percent of', x=1, y=1.1*(max(OWID_merged$pop_perc, OWID_merged$co2_perc)), hjust=0.8, size=3.2) +
+   geom_text(label = 'World Population', x=1, y=1.05*(max(OWID_merged$pop_perc, OWID_merged$co2_perc)), hjust=0.8, size=3.2) +
+  geom_text(label = 'Percent of', x=1.95, y=1.1*(max(OWID_merged$pop_perc, OWID_merged$co2_perc)), hjust=-0.01, size=3.2) + labs(color = "Emissions Generation") +
+  geom_text(label = 'Total Emissions', x=1.95, y=1.05*(max(OWID_merged$pop_perc, OWID_merged$co2_perc)), hjust=-0.01, size=3.2) + labs(color = "Emissions Generation (Proportional")
+)
+
+```
+
+#ggplotly(
+#ggplot(OWID_grouped, aes(x=year)) + geom_area(aes(y=pop_tot, #fill=Region)))
+
+#Instead maybe animate per capita as dumbell chart
+
+OWID_filtered <- OWID_merged %>%
+  filter(year==2010)
+
+ggplot(OWID_merged, aes(x=reorder(Region, co2_cap_tot), y=co2_cap_tot, frame=year)) + geom_point(col="tomato2", size=3) +
+  coord_flip()
+
+
+```
+
+
+
+```{r}
+
+OWID_line <- OWID_merged %>%
+  filter(Country %!in% c('United States','China')) %>%
+  filter(year>1900)
+
+
+ggplotly(
+ggplot(OWID_line, aes(x=year))+
+  geom_line(aes(y=co2, color=Country)) + theme(legend.position="none"))
+
+
+
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+library(rgeos)
+library(rworldmap)
+
+# get world map
+wmap <- getMap(resolution="high")
+
+# get centroids
+centroids <- gCentroid(wmap, byid=TRUE)
+
+# get a data.frame with centroids
+df <- as.data.frame(centroids)
+head(df)
+
+leaflet(df) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addCircles(lng = ~x, lat = ~y)
+  
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
